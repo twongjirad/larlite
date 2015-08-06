@@ -9,9 +9,16 @@
 #pragma link off all classes;
 #pragma link off all functions;
 
-#pragma link C++ class larlite::ERAnaPi0Quality+;
-#pragma link C++ class larlite::ERAnaPi0Reco+;
-#pragma link C++ class larlite::Pi0ContainmentFilter+;
+#pragma link C++ class larlite::Pi0Reco+;
+#pragma link C++ class larlite::singlepi0+;
+#pragma link C++ class ertool::ERAnaPi0All+;
+#pragma link C++ class larlite::effpi0+;
 //ADD_NEW_CLASS ... do not change this line
 
 #endif
+
+
+
+
+
+

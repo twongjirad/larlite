@@ -14,13 +14,14 @@
 #ifndef ERTOOL_MANAGER_H
 #define ERTOOL_MANAGER_H
 
-#include <iostream>
+#include <utility>
 #include <set>
-#include <map>
-#include <algorithm>
 #include "AlgoBase.h"
-#include "FilterBase.h"
 #include "AnaBase.h"
+#include "EventData.h"
+#include "ParticleGraph.h"
+#include "IOHandler.h"
+#include "FhiclLite/ConfigManager.h"
 #include <TStopwatch.h>
 namespace ertool {
 
@@ -57,7 +58,7 @@ namespace ertool {
 
   */
   class Manager{
-
+    
   public:
     enum ManagerStatus_t {
       kIDLE,       ///< status after creation/reset before initialize
@@ -69,19 +70,26 @@ namespace ertool {
   public:
     
     /// Default constructor
-    Manager();
+    Manager( const io::StreamType_t in_strm  = io::kEmptyStream,
+	     const io::StreamType_t out_strm = io::kEmptyStream);
     
     /// Default destructor
     virtual ~Manager(){};
 
-    /// Algo setter
-    void SetAlgo(AlgoBase* a);
+    /// IO Handler
+    ertool::io::IOHandler& GetIOHandle() { return _io_handle; }
 
-    /// Filter setter
-    void SetFilter(FilterBase* f);
+    /// FhiclLite config file adder
+    void AddCfgFile(const std::string cfg_fname);
+
+    /// Reset FhiclLite config file to be used
+    void ClearCfgFile();
+
+    /// Algo setter
+    void AddAlgo(AlgoBase* a);
 
     /// Ana setter
-    void SetAna(AnaBase* a);
+    void AddAna(AnaBase* a);
 
     /// Process input data
     bool Process();
@@ -92,21 +100,19 @@ namespace ertool {
     /// Function to be called after Process()
     void Finalize(TFile* fout=nullptr);
 
+    /// Function to store an "output configuration" in a text file (full path + name in the argument)
+    void StorePSet(const std::string& fname=kDefaultConfigFileName) const;
+
     /// Function to reset things
     void Reset();
 
-    /// Function to clear data
+    /// Clear event-wise data contents
     void ClearData();
 
-    const ertool::EventData&   EventData     () const;
-    const ertool::EventData&   MCEventData   () const;
-    const ertool::ParticleSet& ParticleSet   () const;
-    const ertool::ParticleSet& MCParticleSet () const;
-
-    ertool::EventData&   EventDataWriteable     ();
-    ertool::ParticleSet& ParticleSetWriteable   ();
-    ertool::EventData&   MCEventDataWriteable   ();
-    ertool::ParticleSet& MCParticleSetWriteable ();
+    const ertool::EventData&     EventData       () const;
+    const ertool::EventData&     MCEventData     () const;
+    const ertool::ParticleGraph& ParticleGraph   () const;
+    const ertool::ParticleGraph& MCParticleGraph () const;
 
     /// Status getter
     ManagerStatus_t Status() const { return _status; }
@@ -120,27 +126,34 @@ namespace ertool {
     /// Make MC info available to ana
     bool _mc_for_ana;
 
-  protected:
+    /// struct for time profiling
+    struct _tprof_t {
+      /// ctor
+      _tprof_t(){ Reset(); }
+      /// resetter
+      void Reset()
+      { _time_start = _time_proc = _time_end = 0; }
+      double _time_start; ///< Time to execute ertool::UnitBase::ProcessBegin
+      double _time_proc;  ///< Time to execute ertool::AnaBase::Analyze or ertool::AlgoBase::Reconstruct
+      double _time_end;   ///< Time to execute ertool::UnitBase::ProcessEnd
+    };
+    
+  private:
 
-    std::pair<double,double> _tprof_algo, _tprof_filter, _tprof_ana;
-    double _time_algo_init, _time_filter_init, _time_ana_init;
-    double _time_algo_finalize, _time_filter_finalize, _time_ana_finalize;
-
-    ertool::EventData _data;
-    ertool::EventData _mc_data;
-    ertool::ParticleSet _ps;
-    ertool::ParticleSet _mc_ps;
-
-    TStopwatch fWatch;
+    ertool::io::IOHandler _io_handle;
 
     ManagerStatus_t _status;
 
-    FilterBase* _filter;
+    std::vector< ertool::AlgoBase*> _algo_v;
+    std::vector< ertool::AnaBase*> _ana_v;
+    std::set<std::string> _name_v;
 
-    AlgoBase* _algo;
-
-    AnaBase* _ana;
-
+    TStopwatch fWatch;
+    std::vector<_tprof_t> _time_algo_v;
+    std::vector<_tprof_t> _time_ana_v;
+    
+    ::fcllite::ConfigManager _cfg_mgr;
+    std::set<std::string> _cfg_file_v;
   };
 }
 #endif

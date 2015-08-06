@@ -84,7 +84,7 @@ namespace cluster {
      * clusterParams.hh.   That's why it's here.
      * @param  data  takes a reference to a vector< float>
      */
-    void  GetFANNVector(std::vector<float> & data);
+    void  GetFANNVector(std::vector<float> & data) const;
     // std::vector<float> & GetFANNVector();
 
     /**
@@ -93,6 +93,8 @@ namespace cluster {
      * @return [description]
      */
     void  PrintFANNVector();
+
+    std::vector<std::string> GetFANNVectorTitle();
 
 
     /**
@@ -182,7 +184,7 @@ namespace cluster {
 
     void setNeuralNetPath(std::string s){fNeuralNetPath = s;}
 
-    void FillPolygon();
+    void FillPolygon(double frac=0.95);// frac is frac of charge to be included in polygon
 
     //void GetOpeningAngle();
 

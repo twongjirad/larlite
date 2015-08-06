@@ -11,28 +11,28 @@ namespace cluster{
 
   ClusterParamsAlg::ClusterParamsAlg()
   {
-    fMinNHits = 10;
+    fMinNHits = 1;
     fGSer=nullptr;
     enableFANN = false;
-    verbose=true;
+    verbose=false;
     Initialize();
   }
 
   ClusterParamsAlg::ClusterParamsAlg(const std::vector<const larlite::hit*> &inhitlist)
   {
-    fMinNHits = 10;
+    fMinNHits = 1;
     fGSer=nullptr;
     enableFANN = false;
-    verbose=true;
+    verbose=false;
     SetHits(inhitlist);
   }
 
   ClusterParamsAlg::ClusterParamsAlg(const std::vector<larutil::PxHit> &inhitlist)
   {
-    fMinNHits = 10;
+    fMinNHits = 1;
     fGSer=nullptr;
     enableFANN = false;
-    verbose=true;
+    verbose=false;
     SetHits(inhitlist);
   }
 
@@ -59,6 +59,7 @@ namespace cluster{
     // Make default values
     // Is done by the struct
     if(!(inhitlist.size())) {
+      return -1;
       throw CRUException("Provided empty hit list!");
       return -1;
     }
@@ -91,7 +92,6 @@ namespace cluster{
     }
     
     Initialize();
-
     UChar_t plane = larutil::Geometry::GetME()->ChannelToPlane((*inhitlist.begin())->Channel());
 
     fHitVector.reserve(inhitlist.size());
@@ -99,15 +99,14 @@ namespace cluster{
       fHitVector.push_back(larutil::PxHit());
 
       (*fHitVector.rbegin()).t = h->PeakTime() * fGSer->TimeToCm();
-      (*fHitVector.rbegin()).w = h->Wire() * fGSer->WireToCm();
-      (*fHitVector.rbegin()).charge = h->Charge();
-      (*fHitVector.rbegin()).peak = h->Charge(true);
+      (*fHitVector.rbegin()).w = h->WireID().Wire * fGSer->WireToCm();
+      (*fHitVector.rbegin()).charge = h->Integral();
+      (*fHitVector.rbegin()).peak = h->PeakAmplitude();
       (*fHitVector.rbegin()).plane = plane;
     }
     fPlane=fHitVector[0].plane;
-    
         
-    if (fHitVector.size()<10)
+    if (fHitVector.size()<fMinNHits)
     {
       if(verbose) std::cout << " the hitlist is too small. Continuing to run may result in crash!!! " << std::endl;
      return -1;
@@ -124,23 +123,20 @@ namespace cluster{
     fParams.start_point.plane = fParams.end_point.plane = p;
   }
 
-  void  ClusterParamsAlg::GetFANNVector(std::vector<float> & data){
-    unsigned int length = 13;
+  void  ClusterParamsAlg::GetFANNVector(std::vector<float> & data) const{
+    unsigned int length = 9;
     if (data.size() != length) 
-      data.resize(length);
-    data[0]  = fParams.opening_angle / PI;
-    data[1]  = fParams.opening_angle_charge_wgt / PI;
-    data[2]  = fParams.closing_angle / PI;
-    data[3]  = fParams.closing_angle_charge_wgt / PI;
-    data[4]  = fParams.eigenvalue_principal;
-    data[5]  = fParams.eigenvalue_secondary;
-    data[6]  = fParams.width / fParams.length;
-    data[7]  = fParams.hit_density_1D / fParams.modified_hit_density;
-    data[8]  = fParams.multi_hit_wires/fParams.N_Wires;
-    data[9]  = fParams.N_Hits_HC / fParams.N_Hits;
-    data[10] = fParams.modified_hit_density;
-    data[11] = fParams.RMS_charge / fParams.mean_charge;
-    data[12] = log(fParams.sum_charge / fParams.length);
+      data.reserve(length);
+    data.push_back( -fParams.opening_angle / PI + fParams.closing_angle / PI );
+    // data.push_back( -fParams.opening_angle_charge_wgt / PI + fParams.closing_angle_charge_wgt / PI );
+    data.push_back( -log(1-fParams.eigenvalue_principal)/10.0 );
+    // data.push_back( -log(fParams.eigenvalue_secondary) / 10.0 );
+    data.push_back( fParams.width / fParams.length );
+    // data.push_back( fParams.hit_density_1D / fParams.modified_hit_density );
+    data.push_back( fParams.multi_hit_wires/fParams.N_Wires );
+    data.push_back( fParams.modified_hit_density );
+    data.push_back( fParams.RMS_charge / fParams.mean_charge );
+    data.push_back( log(fParams.sum_charge / fParams.length)/10.0 );
     return;
   }
 
@@ -153,25 +149,44 @@ namespace cluster{
   void  ClusterParamsAlg::PrintFANNVector(){
     std::vector<float> data;
     GetFANNVector(data);
-    if(verbose){
-    std::cout << "Printing FANN input vector:\n"
-              << "   Opening Angle (normalized)  ... : " << data[0] << "\n"
-              << "   Opening Angle charge weight  .. : " << data[1] << "\n"
-              << "   Closing Angle (normalized)  ... : " << data[2] << "\n"
-              << "   Closing Angle charge weight  .. : " << data[3] << "\n"
-              << "   Principal Eigenvalue  ......... : " << data[4] << "\n"
-              << "   Secondary Eigenvalue  ......... : " << data[5] << "\n"
-              << "   Width / Length  ............... : " << data[6] << "\n"
-              << "   Hit Density / M.H.D.  ......... : " << data[7] << "\n"
-              << "   Percent MultiHit Wires  ....... : " << data[8] << "\n"
-              << "   Percent High Charge Hits  ..... : " << data[9] << "\n"
-              << "   Modified Hit Density  ......... : " << data[10] << "\n"
-              << "   Charge RMS / Mean Charge ...... : " << data[11] << "\n"
-              << "   log(Sum Charge / Length) ...... : " << data[12] << "\n";
-    }
+    // if(verbose){
+    int i = 0;
+    std::cout << "Printing FANN input vector:\n";
+    std::cout << "   Opening - Closing Angle (normalized)  ... : " << data[i] << "\n"; i++;
+    // std::cout << "   Opening - Closing Angle charge weight  .. : " << data[i] << "\n"; i++;
+    // std::cout << "   Closing Angle (normalized)  ............. : " << data[i] << "\n"; i++;
+    // std::cout << "   Closing Angle charge weight  ............ : " << data[i] << "\n"; i++;
+    std::cout << "   Principal Eigenvalue  ................... : " << data[i] << "\n"; i++;
+    // std::cout << "   Secondary Eigenvalue  ................... : " << data[i] << "\n"; i++;
+    std::cout << "   Width / Length  ......................... : " << data[i] << "\n"; i++;
+    // std::cout << "   Hit Density / M.H.D.  ................... : " << data[i] << "\n"; i++;
+    std::cout << "   Percent MultiHit Wires  ................. : " << data[i] << "\n"; i++;
+    // std::cout << "   Percent High Charge Hits  ............... : " << data[i] << "\n"; i++;
+    std::cout << "   Modified Hit Density  ................... : " << data[i] << "\n"; i++;
+    std::cout << "   Charge RMS / Mean Charge ................ : " << data[i] << "\n"; i++;
+    std::cout << "   log(Sum Charge / Length) ................ : " << data[i] << "\n"; i++;
+    // }
     return;
   }
 
+  std::vector<std::string> ClusterParamsAlg::GetFANNVectorTitle(){
+    std::vector<std::string> FannLegend;
+    FannLegend.push_back("Opening - Closing Angle (normalized)");
+    // FannLegend.push_back("Opening - Closing Angle charge weight");
+    // FannLegend.push_back("Closing Angle (normalized)");
+    // FannLegend.push_back("Closing Angle charge weight");
+    FannLegend.push_back("Principal Eigenvalue");
+    // FannLegend.push_back("Secondary Eigenvalue");
+    FannLegend.push_back("Width / Length");
+    // FannLegend.push_back("Hit Density / M.H.D.");
+    FannLegend.push_back("Percent MultiHit Wires");
+    // FannLegend.push_back("Percent High Charge Hits");
+    FannLegend.push_back("Modified Hit Density");
+    FannLegend.push_back("Charge RMS / Mean Charge");
+    FannLegend.push_back("log(Sum Charge / Length)");
+    return FannLegend;
+
+  }
 
   void ClusterParamsAlg::SetArgoneutGeometry(){
     larutil::LArUtilManager::Reconfigure(larlite::geo::kArgoNeuT);
@@ -313,7 +328,6 @@ namespace cluster{
 
     }
 
-
     fParams.N_Wires = uniquewires;
     fParams.multi_hit_wires = multi_hit_wires;
 
@@ -333,6 +347,13 @@ namespace cluster{
 
     fParams.eigenvalue_principal = (* fPrincipal.GetEigenValues() )[0];
     fParams.eigenvalue_secondary = (* fPrincipal.GetEigenValues() )[1];
+
+    fParams.principal_dir.resize(2);
+    // std::cout << (* fPrincipal.GetEigenVectors())[0][0] << ", " << (* fPrincipal.GetEigenVectors())[0][1] << "\n"
+              // << (* fPrincipal.GetEigenVectors())[1][0] << ", " << (* fPrincipal.GetEigenVectors())[1][1] << "\n";
+
+    fParams.principal_dir[0] = (* fPrincipal.GetEigenVectors())[0][0];
+    fParams.principal_dir[1] = (* fPrincipal.GetEigenVectors())[1][0];
 
     fFinishedGetAverages = true;
     // Report();
@@ -421,6 +442,8 @@ namespace cluster{
       if (!fFinishedGetRoughAxis) GetRoughAxis(true);
     }
 
+    if (fParams.N_Hits == 1) return;
+
     TStopwatch localWatch;
     localWatch.Start();
 
@@ -474,24 +497,24 @@ namespace cluster{
       
       if(inv_2d_slope!=-999999)   //almost all cases
       {	
-	if(intercept > InterHigh ){
-	  InterHigh=intercept;
-	  }
+        if(intercept > InterHigh ){
+          InterHigh=intercept;
+          }
         
-	if(intercept < InterLow ){
-	  InterLow=intercept;
-	  }  
+        if(intercept < InterLow ){
+          InterLow=intercept;
+          }  
       }
       else    //slope is practically horizontal. Care only about wires.
-	{
-	  if(hit.w > WireHigh ){
-	    WireHigh=hit.w;
-	    }
+        {
+          if(hit.w > WireHigh ){
+            WireHigh=hit.w;
+            }
         
-	  if(hit.w < WireLow ){
-	    WireLow=hit.w;
-	    }
-	}
+          if(hit.w < WireLow ){
+            WireLow=hit.w;
+            }
+        }
     
       if(side_intercept > fInterHigh_side ){
         fInterHigh_side=side_intercept;
@@ -1537,7 +1560,7 @@ namespace cluster{
   } //end RefineDirection
   
 
-  void ClusterParamsAlg::FillPolygon()
+  void ClusterParamsAlg::FillPolygon(double frac)
   {
 
     TStopwatch localWatch;
@@ -1545,7 +1568,7 @@ namespace cluster{
 
     if(fHitVector.size()) {
       std::vector<const larutil::PxHit*> container_polygon;
-      fGSer->SelectPolygonHitList(fHitVector,container_polygon);
+      fGSer->SelectPolygonHitList(fHitVector,container_polygon,frac);
       //now making Polygon Object
       std::pair<float,float> tmpvertex;
       //make Polygon Object as in mac/PolyOverlap.cc
@@ -1572,6 +1595,12 @@ namespace cluster{
 
     TStopwatch localWatch;
     localWatch.Start();
+
+    if (fParams.N_Hits == 1){
+      fParams.start_point = fHitVector.front();
+      fParams.end_point = fHitVector.front();
+      return;
+    }
 
     if(verbose) std::cout << " here!!! "  << std::endl;
     

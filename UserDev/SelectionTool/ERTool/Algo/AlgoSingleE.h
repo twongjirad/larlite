@@ -16,13 +16,14 @@
 #ifndef ERTOOL_ALGOSINGLEE_H
 #define ERTOOL_ALGOSINGLEE_H
 
+#include "ERTool/Base/AlgoBase.h"
 #include "ERTool/Algo/AlgoEMPart.h"
 #include "ERTool/Algo/AlgoFindRelationship.h"
-#include "ERTool/Base/AlgoBase.h"
 #include "GeoAlgo/GeoAlgo.h"
+#include "GeoAlgo/GeoAABox.h"
 #include <algorithm> // for std::find
 #include <utility>
-
+#include <TTree.h>
 namespace ertool {
 
   /**
@@ -34,52 +35,54 @@ namespace ertool {
   public:
 
     /// Default constructor
-    AlgoSingleE();
+    AlgoSingleE(const std::string& name="SingleE");
 
     /// Default destructor
-    virtual ~AlgoSingleE(){};
+    ~AlgoSingleE(){};
 
     /// Reset function
-    virtual void Reset();
+    void Reset();
 
     /// What to do before event-loop begins
-    virtual void ProcessBegin();
+    void ProcessBegin();
 
-    virtual void ProcessEnd(TFile* fout);
+    void ProcessEnd(TFile* fout);
 
     /// Override the ertool::SPTBase::LoadParams function
-    virtual void LoadParams(std::string fname="",size_t version=kINVALID_SIZE);
+    void AcceptPSet(const ::fcllite::PSet& cfg);
 
     /// Function to reconstruct the start-point isolated electrons
-    virtual ParticleSet Reconstruct(const EventData &data);
+    bool Reconstruct(const EventData &data, ParticleGraph& graph);
 
     /// Set verbosity
-    void setVerbose(bool on) { _verbose = on; _findRel.setDebug(on); }
+    void setVerbose(bool on){
+      _verbose = on;
+      _findRel.setDebug(on);
+    }
     
     /// Use EMPart
     void useRadLength(bool on) { _useRadLength = on; }
 
     void setRejectLongTracks(bool on) { _rejectLongTracks = on; }
-
-    void setVtxToTrkStartDist(double d) { _vtxToTrkStartDist = d; }
-    void setVtxToTrkDist(double d) { _vtxToTrkDist = d; }
-    void setVtxToShrStartDist(double d) { _vtxToShrStartDist = d; }
-    void setMaxIP(double d) { _maxIP = d; }
-    void setEThreshold(double E) { _Ethreshold = E; }
+    void setVtxToTrkStartDist(double d){ _vtxToTrkStartDist = d; }
+    void setVtxToTrkDist(double d){ _vtxToTrkDist = d; }
+    void setVtxToShrStartDist(double d){ _vtxToShrStartDist = d; }
+    void setMaxIP(double d){ _maxIP = d; }
+    void setEThreshold(double E){ _Ethreshold = E; }
     void setVtxProximityCut(double d) { _vtxProximityCut = d; }
+    void setBDtW(double b) { _BDtW = b; }
+    void setBDtTW(double bt) { _BDtTW = bt; }
 
 
   private:
+
+    ::geoalgo::AABox fTPC;
 
     /// clear tree
     void ClearTree();
 
   protected:
 
-
-    /// Function to filter out events with long primary tracks 
-    /// return true if a muon is found
-    bool filterMuons(const EventData &data, const std::vector<int> &secondaryTracks);
 
     /// Function to check wether a shower is e- or gamma-like
     /// Returns true if gamma-like
@@ -126,7 +129,19 @@ namespace ertool {
     // require that a shower be within this distance to the
     // closest candidate vertex
     double _vtxProximityCut;
-
+    // Backwards Distance to Wall Cut:
+    // if "single" shower vertex is near to wall, it is likely due to
+    // cosmic.  This becomes more important cut with small/no fid
+    // volume cut. Default set off. 
+    double _BDtW ;
+    // Backwards Distance to Top Wall Cut:
+    // if "single" shower vertex is extended backwards along its
+    // trajectory, when does it hit the top wall of TPC (assuming
+    // top wall is extended to infinity)? This param will be
+    // negative for upwards facing showers.
+    double _BDtTW ;
+    // Keep track of number of neutrinos found
+    int _neutrinos;
     // Keep track of whether a sister track to the shower has
     // been found
     bool _hassister;
@@ -137,9 +152,12 @@ namespace ertool {
     // GeoAlgo Tool
     ::geoalgo::GeoAlgo _geoAlgo;
 
-    //debug histos
-    TH1F* _e_ll_values;
-    TH1F* _dedx_values;
+    //Tree -> one entry for every time EMPart LL function
+    // is called using both dEdx and rad-length
+    TTree* _empart_tree;
+    double _dedx;
+    double _radlen;
+    int    _pdg;
 
     //Tree -> one entry per shower-other comparison
     // therefore possibly multiple entries for each shower
@@ -153,6 +171,9 @@ namespace ertool {
     double _IPthisStart; // distance from IP to this shower start point
     double _IPthatStart; // distance from IP to that shower/track start point
     double _IPtrkBody; // distance from IP to body of track (if comparing with track)
+    double _distBackAlongTraj; // distance backwards from vertex to nearest wall
+    double _distToTopWall; // distance backwards along traj from vertex to top wall(extended to infinity)
+
   };
 }
 #endif

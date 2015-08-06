@@ -33,32 +33,33 @@ def main():
     my_algo = ertool.AlgoEMPart()
     # ******* Set Fit ranges **********
     # Fit ranges for Reconstructed Info
-    my_algo.SetFitRange_dEdx(1.2,2,False); # False = e- / True = gamma
-    my_algo.SetFitRange_dEdx(3.0,4.5,True);
-    my_algo.SetFitRange_RadLen(0.,50.,True);
-    my_algo.SetFitRange_RadLen(0.,10.,False);
+    my_algo.SetFitRange_dEdx(1.6,2.4,False); # False = e- / True = gamma
+    my_algo.SetFitRange_dEdx(3.5,6.0,True);
+    my_algo.SetFitRange_RadLen(1.,4.,False);
+    my_algo.SetFitRange_RadLen(5.,35.,True);
     # Fit ranges for MC Info:
     #my_algo.SetFitRange_dEdx(0.5,6,False); # False = e- / True = gamma
     #my_algo.SetFitRange_dEdx(0.5,6,True);
-    #my_algo.SetFitRange_RadLen(0.,50.,True);
-    #my_algo.SetFitRange_RadLen(0.,10.,False);
+    #my_algo.SetFitRange_RadLen(5.,25.,True);
+    #my_algo.SetFitRange_RadLen(0.,5.,False);
     # ******* End Set Fit Ranges *******
-    my_algo.setVerbose(True)
+    my_algo.setVerbose(False)
+    my_algo.setPlot(True)
     # Create analysis unit
     my_ana = fmwk.ExampleERSelection()
     my_ana.SetMinEDep(10)
+    my_ana.SetCheater(True)
 
     # Set Producers
     # First Argument: True = MC, False = Reco
     #my_ana.SetShowerProducer(True,"mcreco");
-    #my_ana.SetTrackProducer(True,"mcreco");
-    #my_ana.SetVtxProducer(True,"generator");
+    my_ana.SetTrackProducer(True,"mcreco");
     #my_ana.SetShowerProducer(False,"pandoraNuShower");
     my_ana.SetShowerProducer(False,"showerreco");
-    my_ana.SetTrackProducer(False,"");
-    #my_ana.SetVtxProducer(False,"");
+    #my_ana.SetTrackProducer(False,"");
 
-    my_ana._mgr.SetAlgo(my_algo)
+    #my_ana._mgr.SetAlgo(my_algo)
+    my_ana._mgr.AddAlgo(my_algo)
     my_ana._mgr._training_mode =True
 
     # Check if gamma/electron files are provided:
@@ -79,7 +80,9 @@ def main():
     if not ask_binary('  Proceed? [y/n]:'): return False
     print
     if ask_binary('  Load previously extracted fit parameters? [y/n]:'):
-        my_algo.LoadParams()    
+        my_algo.setLoadParams(True)
+    else:
+        my_algo.setLoadParams(False)
     #
     # Training for gamma mode
     #
@@ -130,7 +133,8 @@ def main():
     # Store trained parameters
     #
     if (gamma_trained or electron_trained) and ask_binary('  Store train result parameters? [y/n]:'):
-        my_algo.StoreParams()
+        my_ana._mgr.StorePSet("new_empart.txt")
+        #my_algo.StoreParams()
         print '  Parameter stored...'
         print
 
