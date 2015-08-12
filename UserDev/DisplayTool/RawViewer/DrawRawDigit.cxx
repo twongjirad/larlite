@@ -69,13 +69,210 @@ namespace evd {
       unsigned int ch = rawdigit.Channel();
       if (ch >= 8254) continue;
 
-      int offset = geoService->ChannelToWire(ch) * detProp -> ReadOutWindowSize();
+      int wire = geoService->ChannelToWire(ch);
       int plane = geoService->ChannelToPlane(ch);
+
+
+      // TEMPORARY: fix collection mapping.
+      if (plane == 2){
+        // std::cout << "Wire from " << wire;
+        int wireAnchor = wire - (wire % 32);
+        wire = wireAnchor + 32 - (wire % 32) - 1;
+        // std::cout << " to " << wire <<std::endl;
+      }
+      if (plane == 1){
+        if (wire < 672){
+	   int wireTemp = 0;
+	   /*// 0
+           if (wire > -1 && wire <= 31)
+	      {wireTemp = wire + 64; }
+	   // 1
+	   if (wire > 31 && wire <=63)
+	      { wireTemp = wire - 32; }
+	   // 2   
+	   if (wire > 63 && wire  <= 95)
+	      { wireTemp = wire - 32; }
+	      
+	   // 3   
+	   if (wire > 95 && wire <= 127)
+	      { wireTemp = wire + 256; }
+	   // 4
+	   if (wire > 127 && wire <= 159)
+	      { wireTemp = wire + 320; } 
+	   // 5     
+	   if (wire > 159 && wire <= 191)
+	      { wireTemp = wire + 256;}
+	   
+	   // 6   
+	   if (wire > 191 && wire <= 223)
+	      { wireTemp = wire +320; } 
+	   // 7   
+	   if (wire > 223 && wire <= 255)
+	      { wireTemp = wire  +256; } 
+	   // 8  
+	   if (wire > 255 && wire <= 287)
+	      { wireTemp = wire +320; }
+	   
+	   // 9   
+	   if (wire > 287 && wire <= 319)
+	      { wireTemp = wire +256; }
+	   // 10
+	   if (wire > 319 && wire <= 351)
+	      { wireTemp = wire  +320; }
+	   // 11
+	   if (wire > 351 && wire <= 383)
+	      { wireTemp = wire +256; }
+	   
+	   // 12   
+	   if (wire > 383 && wire <= 415)
+	      { wireTemp = wire -256; }
+	   
+	   // 13
+	   if (wire > 415 && wire <= 447)
+	      { wireTemp = wire -320; }
+	   // 14
+	   if (wire > 447 && wire <= 479)
+	      { wireTemp = wire -256; }
+	     
+	   // 15   
+	   if (wire > 479 && wire <= 511)
+	      { wireTemp = wire  -320; }
+	   // 16   	      	   	      
+	   if (wire > 511 && wire <= 543)
+	      { wireTemp = wire -256; }
+	   // 17   
+	   if (wire > 543 && wire <= 575)
+	      { wireTemp = wire  -320; }
+	   
+	   // 18   	      
+	   if (wire > 575 && wire <= 607)
+	      { wireTemp = wire  -256; }
+	   // 19   	      
+	   if (wire > 607 && wire <= 639)
+	      { wireTemp = wire  -320; }
+	   // 20   
+	   if (wire > 639 && wire <= 671)
+	      { wireTemp = wire  -256; }   	      
+	   */
+	   
+	   
+	   // 0
+           if (wire > -1 && wire <= 31)
+	      {wireTemp = wire + 32; }
+	   // 1
+	   if (wire > 31 && wire <=63)
+	      { wireTemp = wire + 32; }
+	   // 2   
+	   if (wire > 63 && wire  <= 95)
+	      { wireTemp = wire - 64; }
+	      
+	   // 3   
+	   if (wire > 95 && wire <= 127)
+	      { wireTemp = wire + 320; }
+	   // 4
+	   if (wire > 127 && wire <= 159)
+	      { wireTemp = wire + 256; } 
+	   // 5     
+	   if (wire > 159 && wire <= 191)
+	      { wireTemp = wire + 320;}
+	   
+	   // 6   
+	   if (wire > 191 && wire <= 223)
+	      { wireTemp = wire +256; } 
+	   // 7   
+	   if (wire > 223 && wire <= 255)
+	      { wireTemp = wire  +320; } 
+	   // 8  
+	   if (wire > 255 && wire <= 287)
+	      { wireTemp = wire +256; }
+	   
+	   // 9   
+	   if (wire > 287 && wire <= 319)
+	      { wireTemp = wire +320; }
+	   // 10
+	   if (wire > 319 && wire <= 351)
+	      { wireTemp = wire  +256; }
+	   // 11
+	   if (wire > 351 && wire <= 383)
+	      { wireTemp = wire -256; }
+	   
+	   // 12   
+	   if (wire > 383 && wire <= 415)
+	      { wireTemp = wire +256; }
+	   
+	   // 13
+	   if (wire > 415 && wire <= 447)
+	      { wireTemp = wire -256; }
+	   // 14
+	   if (wire > 447 && wire <= 479)
+	      { wireTemp = wire -320; }
+	     
+	   // 15   
+	   if (wire > 479 && wire <= 511)
+	      { wireTemp = wire  -256; }
+	   // 16   	      	   	      
+	   if (wire > 511 && wire <= 543)
+	      { wireTemp = wire -320; }
+	   // 17   
+	   if (wire > 543 && wire <= 575)
+	      { wireTemp = wire  -256; }
+	   
+	   // 18   	      
+	   if (wire > 575 && wire <= 607)
+	      { wireTemp = wire  -320; }
+	   // 19   	      
+	   if (wire > 607 && wire <= 639)
+	      { wireTemp = wire  -256; }
+	   // 20   
+	   if (wire > 639 && wire <= 671)
+	      { wireTemp = wire  -320; } 
+	      	      
+            // int wireTemp = wire - 32;
+           int wireAnchor = wireTemp - (wireTemp % 32);
+           wireTemp = wireAnchor + 32 - (wire % 32) - 1;
+	   
+	   if(wireTemp > 63 && wireTemp <=95)
+	      {wireTemp += 320;}
+	   if(wireTemp >383 && wireTemp <=447)
+	      {wireTemp -= 320;}
+	   
+            wire = wireTemp;
+          // }
+          // int wireAnchor = wire - (wire % 256);
+          // wire = wireAnchor + 256 - (wire % 256) - 1 ;
+          //int wireAnchor = wire - (wire % 64) + 16;
+          //wire = wireAnchor + 64 - (wire % 64) - 1;
+	  //wire = wireTemp;
+        }
+
+      }
+
+      if (plane == 0){
+        if (wire > 1727){
+	int wireAnchor = wire - (wire % 32);
+        wire = wireAnchor + 32 - (wire % 32) - 1;
+
+        }
+      }
+
+      if (wire < 0  || wire > geoService -> Nwires(plane))
+        continue;
+
+
+      int offset = wire * detProp -> ReadOutWindowSize();
       // convert short ADCs to float
       
+      // Get the pedestal for this channel:
+      float ped = 0.0;
+      for (int j = 0; j < 500; j++){
+        ped += rawdigit.ADC(j);
+      }
+      ped /= 500.0;
+
       int i = 0;
       for (auto & adc : rawdigit.ADCs()){
-        _planeData.at(plane).at(offset + i) = adc - _pedestals.at(plane);
+        _planeData.at(plane).at(offset + i) = adc - ped;
+        // _planeData.at(plane).at(offset + i) = adc - _pedestals.at(plane);
         i++;
       }
     }
