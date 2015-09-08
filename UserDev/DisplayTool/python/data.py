@@ -1,9 +1,11 @@
 
 from PyQt4 import QtGui, QtCore
 from larlite import larlite as fmwk
+import ROOT
 from ROOT import *
 import numpy as np
 import pyqtgraph as pg
+import math as mt 
 
 
 # These classes provide the basic interfaces for drawing objects
@@ -152,6 +154,11 @@ class rawDigit(wire):
     for i in xrange(len(geom._pedestals)):
       self._process.setPedestal(geom._pedestals[i],i)
     self._process.initialize()
+    self._process.SetStepSizeByPlane(48,0)
+    self._process.SetStepSizeByPlane(48,1)
+    self._process.SetStepSizeByPlane(96,2)
+    self._process.SetCorrectData(True)
+    self._process.SetSaveData(False)
 
 
 class hit(recoBase):
@@ -392,10 +399,10 @@ class shower(recoBase):
         # next connect the two points at the end of the shower to make a cone
         x1, y1 = shower.startPoint().X(), shower.startPoint().Y()
         x2, y2 = shower.startPoint().X(), shower.startPoint().Y()
-        x1 = x1 + shower.length() * cos(shower.angleInPlane() - shower.openingAngle()/2)
-        y1 = y1 + shower.length() * sin(shower.angleInPlane() - shower.openingAngle()/2)
-        x2 = x2 + shower.length() * cos(shower.angleInPlane() + shower.openingAngle()/2)
-        y2 = y2 + shower.length() * sin(shower.angleInPlane() + shower.openingAngle()/2)
+        x1 = x1 + shower.length() * mt.cos(shower.angleInPlane() - shower.openingAngle()/2)
+        y1 = y1 + shower.length() * mt.sin(shower.angleInPlane() - shower.openingAngle()/2)
+        x2 = x2 + shower.length() * mt.cos(shower.angleInPlane() + shower.openingAngle()/2)
+        y2 = y2 + shower.length() * mt.sin(shower.angleInPlane() + shower.openingAngle()/2)
 
         # Scale everything to wire/time:
         x1 /= geom.wire2cm()
