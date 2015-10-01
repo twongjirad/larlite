@@ -2,7 +2,7 @@
 #define ERTOOL_ALGOSINGLEE_CXX
 
 #include "AlgoSingleE.h"
-
+#include <sstream>
 namespace ertool {
 
   size_t single_e_counter = 0;
@@ -18,7 +18,6 @@ namespace ertool {
   {
     _e_mass     = ParticleMass(11);
     _Ethreshold = 0;
-    _verbose = false;
     _useRadLength = false;
     _hassister = false;
     _rejectLongTracks = true;
@@ -76,11 +75,11 @@ namespace ertool {
 
   bool AlgoSingleE::Reconstruct(const EventData &data, ParticleGraph& graph){
 
-    auto datacpy = data;
-
-    if (_verbose) { 
-      std::cout << "*********** BEGIN SingleE RECONSTRUCTION ************" << std::endl;
-      std::cout << "Showers in event  : " << data.Shower().size() << std::endl;
+    if (Debug()){
+      Debug(__FUNCTION__,"*********** BEGIN SingleE RECONSTRUCTION ************");
+      std::stringstream ss;
+      ss << "Showers in event  : " << data.Shower().size();
+      Debug(__FUNCTION__,ss.str());
     }
 
     // We have a list of primaries.
@@ -89,8 +88,16 @@ namespace ertool {
     // loop through primary showers
     // Loop through showers
     for (auto const& p : graph.GetPrimaryNodes(RecoType_t::kShower)){
+      bool muon = false;
+          
+      if(graph.GetParticle(p).ProcessType() == ::ertool::ProcessType_t::kCosmic ||
+         graph.GetParticle(graph.GetParticle(p).Ancestor()).ProcessType() == ::ertool::ProcessType_t::kCosmic){
+	if(Debug()) Debug(__FUNCTION__,"Cosmic Shower");
+        continue;	
+      }
       
-      auto const& thisShower = datacpy.Shower(graph.GetParticle(p).RecoID());
+      auto const& thisShower = data.Shower(graph.GetParticle(p).RecoID());
+
       // keep track of whether it is single
       bool single = true;
       // if we find that this shower shares a vertex with a track -> change "_hassister" to true.
@@ -98,18 +105,39 @@ namespace ertool {
       // Keep track of list of siblings found for the shower (will be used to reconstruct full neutrino interaction)
       std::vector<int> siblings;
 
-      if (_verbose) { std::cout << "This shower: (" << p << ")" << "\tE: " << thisShower._energy << std::endl; }
+      if (Debug()) {
+	std::stringstream ss;
+	ss << "This shower: (" << p << ")" << "\tE: " << thisShower._energy;
+	Debug(__FUNCTION__,ss.str());
+      }
 
       // it is primary. Make sure it satisfies SingleE conditions also
       // 1) loop over all showers in event
       for (auto const& p2 : graph.GetParticleNodes(RecoType_t::kShower)){
 	
-	auto const& thatShower = datacpy.Shower(graph.GetParticle(p2).RecoID());
+	auto const& thatShower = data.Shower(graph.GetParticle(p2).RecoID());
+	
+	if( graph.GetParticle(graph.GetParticle(p2).Parent()).RecoType() == RecoType_t::kTrack){
+	  if(Debug()) Debug(__FUNCTION__,"Muon mama");
+	  continue;
+	}
+
+	if(graph.GetParticle(p2).ProcessType() == ::ertool::ProcessType_t::kCosmic ||
+	   graph.GetParticle(graph.GetParticle(p2).Ancestor()).ProcessType() == ::ertool::ProcessType_t::kCosmic){
+	  if(Debug()) Debug(__FUNCTION__,"Cosmic Shower");
+	  continue;	
+	}
+
+
 	geoalgo::Point_t vtx(3);
 	// make sure we don't use "thisShower" in the loop
 	if (thatShower.RecoID() == thisShower.RecoID()) 
 	  continue;
-	if (_verbose) { std::cout << "Comparing with shower (" << p2 << ")" << std::endl; }
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << "Comparing with shower (" << p2 << ")";
+	  Debug(__FUNCTION__,ss.str());
+	}
 	// is "thatshower" gamma or e-like?
 	// if gamma-like maybe a nearby pi0 -> ok if close
 	if (isGammaLike(thatShower._dedx,-1))
@@ -125,13 +153,20 @@ namespace ertool {
 	_IPthisStart = vtx.Dist(thisShower.Start());
 	_IPthatStart = vtx.Dist(thatShower.Start());
 	_alg_tree->Fill();
-	if (_verbose)
-	  std::cout << "\tImpact Parameter      : " << _IP << std::endl
-		    << "\tIP to other Shr Start : " << _IPthatStart << std::endl
-		    << "\tIP to this Shr Start  : " << _IPthisStart << std::endl;
-	if ( (IP < _maxIP) && ( vtx.Dist(thisShower.Start()) < _vtxToShrStartDist) && ( vtx.Dist(thatShower.Start()) < _vtxToShrStartDist) ){
+
+	if(Debug()){
+	  std::stringstream ss;
+	  ss << "Impact Parameter      : " << _IP << std::endl
+	     << "IP to other Shr Start : " << _IPthatStart << std::endl
+	     << "IP to this Shr Start  : " << _IPthisStart << std::endl;
+	  Debug(__FUNCTION__,ss.str());
+	}
+	if ( (IP < _maxIP) &&
+	     ( vtx.Dist(thisShower.Start()) < _vtxToShrStartDist) &&
+	     ( vtx.Dist(thatShower.Start()) < _vtxToShrStartDist)
+	     ){
 	  single = false;
-	  if (_verbose) { std::cout << "NOT single" << std::endl; }
+	  if(Debug()) Debug(__FUNCTION__,"NOT single");
 	  break;
 	}
       }// loop over all showers in event
@@ -141,13 +176,23 @@ namespace ertool {
 	continue;
 
       for (auto const& t : graph.GetParticleNodes(RecoType_t::kTrack)){
+
+	if(graph.GetParticle(t).ProcessType() == ::ertool::ProcessType_t::kCosmic||
+	   graph.GetParticle(graph.GetParticle(t).Ancestor()).ProcessType() == ::ertool::ProcessType_t::kCosmic){
+	  if(Debug()) Debug(__FUNCTION__,"Cosmic Shower");
+	  continue;	
+	}
 	
-	auto const& thatTrack = datacpy.Track(graph.GetParticle(t).RecoID());
+	auto const& thatTrack = data.Track(graph.GetParticle(t).RecoID());
 	// make sure track has a length of at least 0.3 cm (wire spacing)
 	// greater longer than 3 mm
 	if (thatTrack.Length() < 0.3)
 	  continue;
-	if (_verbose) { std::cout << "Comparing with track (" << t << ")" << std::endl; }
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss<< "Comparing with track (" << t << ")";
+	  Debug(__FUNCTION__,ss.str());
+	}
 	geoalgo::Point_t vtx(3);
 	// compare the two tracks
 	double IP =  _findRel.FindClosestApproach(thisShower,thatTrack,vtx);
@@ -158,11 +203,15 @@ namespace ertool {
 	_IPthatStart = vtx.Dist(thatTrack.front());
 	_IPtrkBody = sqrt(_geoAlgo.SqDist(vtx,thatTrack));
 	_alg_tree->Fill();
-	if (_verbose)
-	std::cout << "\tImpact Parameter: " << _IP << std::endl
-		  << "\tIP to Trk Start : " << _IPthatStart << std::endl
-		  << "\tIP to Trk Body  : " << _IPtrkBody << std::endl
-		  << "\tIP to Shr Start : " << _IPthisStart << std::endl;
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << std::endl
+	     << "\tImpact Parameter: " << _IP << std::endl
+	     << "\tIP to Trk Start : " << _IPthatStart << std::endl
+	     << "\tIP to Trk Body  : " << _IPtrkBody << std::endl
+	     << "\tIP to Shr Start : " << _IPthisStart << std::endl;
+	  Debug(__FUNCTION__,ss.str());
+	}
 	single = true;
 	if ( (IP < _maxIP)                                              // good correlation
 	     && (vtx.Dist(thatTrack.front()) < _vtxToTrkStartDist)      // vertex close to track start
@@ -170,7 +219,7 @@ namespace ertool {
 	  {
 	    // our shower has a common origin with this track
 	    // they are siblings
-	    if (_verbose) { std::cout << "common origin w/ track!" << std::endl; }
+	    if (Debug()) Debug(__FUNCTION__,"common origin w/ track!");
 	    _hassister = true;
 	    siblings.push_back(t);
 	    
@@ -178,7 +227,7 @@ namespace ertool {
 	      _dedx   = thisShower._dedx;
 	      _radlen = vtx.Dist(thisShower.Start());
 	      _pdg    = 22;
-	      if (_verbose) { std::cout << "Shower is gamma-like. Ignore " << std::endl; }
+	      if (Debug()) Debug(__FUNCTION__,"Shower is gamma-like. Ignore ");
 	      single = false;
 	      break;
 	    }
@@ -208,7 +257,11 @@ namespace ertool {
 
       if ( single and !_hassister and (_vtxProximityCut != 0) ){
 	if ( (distmin != 1036) and (distmin > _vtxProximityCut) ){
-	  if(_verbose) { std::cout << "Trk-Vtx found @ distance of " << distmin << ". Shower not single!" << std::endl; }
+	  if(Debug()) {
+	    std::stringstream ss;
+	    ss << "Trk-Vtx found @ distance of " << distmin << ". Shower not single!";
+	    Debug(__FUNCTION__,ss.str());
+	  }
 	  single = false;
 	}
       }
@@ -217,17 +270,17 @@ namespace ertool {
       // dEdx to determine if e-like
       if (single && !_hassister){
 	if ( isGammaLike(thisShower._dedx,-1) || (thisShower._dedx <= 0) || (thisShower._dedx > 10.) ){
-	  if (_verbose) { std::cout << "Shower is single but gamma-like -> reject" << std::endl; }
+	  if (Debug()) Debug(__FUNCTION__,"Shower is single but gamma-like -> reject");
 	  single = false;
 	}
       }
-
+    
       //If single still true -> we found it! Proceed!
       // the particle with all it's info was already
       // created, simply add it to the result vector
       if (single){
-	if (_verbose) { std::cout << "Shower is Single!" << std::endl; }
-
+	if (Debug()) Debug(__FUNCTION__,"Shower is Single!");
+	
 	// prepare holder for neutrino momentum
 	//::geoalgo::Vector_t neutrinoMom(0,0,0);
 	double neutrinoMom = 0;
@@ -235,27 +288,42 @@ namespace ertool {
 	// fill in electron properties
 	double mom = sqrt( (thisShower._energy)*(thisShower._energy) - (_e_mass*_e_mass) );
 	if (mom < 0) { mom = 1; }
-	if (_verbose) { std::cout << "Getting shower " << p << std::endl; }
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << "Getting shower " << p << " and modifying properties...";
+	  Debug(__FUNCTION__,ss.str());
+	}
 	auto& electron = graph.GetParticle(p);
-	if (_verbose) { std::cout << " and modifying properties..." << std::endl; }
+
 	electron.SetParticleInfo(11,_e_mass,thisShower.Start(),thisShower.Dir()*mom);
 	// create a new particle for the neutrino!
-	if (_verbose) { std::cout << "number of partciles before: " << graph.GetNumParticles() << std::endl; }
-	if (_verbose) { std::cout << "Making neutrino..." << std::endl; }
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << "number of partciles before: " << graph.GetNumParticles();
+	  Debug(__FUNCTION__,ss.str());
+	  Debug(__FUNCTION__,"Making neutrino...");
+	}
 	Particle& neutrino = graph.CreateParticle();
 	neutrinoMom += mom;//thisShower.Dir()*mom;
 	//neutrino.SetParticleInfo(12,0.,thisShower.Start(),thisShower.Dir()*mom);
-	if (_verbose) { std::cout << "made neutrino with ID " << neutrino.ID() << " and PDG: " << neutrino.PdgCode() << std::endl; }
-	if (_verbose) { std::cout << "number of partciles after: " << graph.GetNumParticles() << std::endl; }
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << std::endl
+	     << "made neutrino with ID " << neutrino.ID() << " and PDG: " << neutrino.PdgCode() << std::endl
+	     << "number of partciles after: " << graph.GetNumParticles();
+	  Debug(__FUNCTION__,ss.str());
+	}
+	  
 	_neutrinos += 1;
 	// set relationship
 	graph.SetParentage(neutrino.ID(),p);
 
 	// Now look for all potential siblins
 	// using AlgoFindRelationship
+       	
 	for (auto const& t : graph.GetPrimaryNodes(RecoType_t::kTrack)){
 	  
-	  auto const& track = datacpy.Track(graph.GetParticle(t).RecoID());
+	  auto const& track = data.Track(graph.GetParticle(t).RecoID());
 	  // make sure track has a length of at least 0.3 cm (wire spacing)
 	  // greater longer than 3 mm
 	  if (track.Length() < 0.3)
@@ -281,6 +349,7 @@ namespace ertool {
 	      double mass = _findRel.GetMass(track);
 	      geoalgo::Vector_t Mom = Dir * ( sqrt( Edep * (Edep+2*mass) ) );
 	      //trackParticle.SetParticleInfo(_findRel.GetPDG(track),mass,track[0],Mom);
+	      if(trackParticle.PdgCode() == 13){ muon = true;}
 	      trackParticle.SetParticleInfo(trackParticle.PdgCode(),mass,track[0],Mom);
 	      neutrinoMom += sqrt( Edep * ( Edep + 2*mass ) );
 	      //std::cout << "setting parentage for sibling track..." << std::endl;
@@ -289,15 +358,20 @@ namespace ertool {
 	} // loop over all track to add siblings to particle graph
 
 	::geoalgo::Vector_t momdir(0,0,1);
-
-	neutrino.SetParticleInfo(12,0.,thisShower.Start(),momdir*neutrinoMom);
-
+     
+	if(!(muon)){
+	  neutrino.SetParticleInfo(12,0.,thisShower.Start(),momdir*neutrinoMom);
+	}
+	else{
+	  std::cout << "this sucker is a freaking nu_mu" << std::endl; 
+	  neutrino.SetParticleInfo(14,0.,thisShower.Start(),momdir*neutrinoMom);
+	}
 	
-
+      
       }// if single
       // if not single
       else
-	if (_verbose) { std::cout << "Shower is not single." << std::endl; }
+	if (Debug()) Debug(__FUNCTION__,"Shower is not single.");
 
 
       
@@ -329,10 +403,13 @@ namespace ertool {
       radlen = -1;
     if ( _alg_emp.LL(true, dedx, radlen) < _alg_emp.LL(false, dedx, radlen) )
       {
-	if (_verbose) {
-	  std::cout << "Shower has dEdx = " << dedx
-		    << "\tRadLen = " << radlen
-		    << "\tIgnore for comparison." << std::endl;
+	if (Debug()) {
+	  std::stringstream ss;
+	  ss << std::endl
+	     << "\tShower has dEdx = " << dedx << std::endl
+	     << "\tRadLen = " << radlen << std::endl
+	     << "\tIgnore for comparison.";
+	  Debug(__FUNCTION__,ss.str());
 	}
 	return true;
       }

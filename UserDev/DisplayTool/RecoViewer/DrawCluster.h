@@ -2,7 +2,7 @@
  * \file DrawCluster.h
  *
  * \ingroup RecoViewer
- * 
+ *
  * \brief Class def header for a class DrawCluster
  *
  * @author cadams
@@ -17,83 +17,72 @@
 
 #include "Analysis/ana_base.h"
 #include "LArUtil/Geometry.h"
+#include "LArUtil/GeometryHelper.h"
+#include "LArUtil/DetectorProperties.h"
+#include "DataFormat/cluster.h"
+#include "DataFormat/hit.h"
+
+#include "DrawHit.h"
+
+#include "ClusterRecoUtil/Alg/DefaultParamsAlg.h"
+#include "ClusterRecoUtil/Base/CRUHelper.h"
+
 
 namespace evd {
-  /**
-     \class DrawCluster
-     User custom analysis class made by SHELL_USER_NAME
-   */
-  class DrawCluster : public larlite::ana_base{
-  
-  public:
+/**
+   \class DrawCluster
+   User custom analysis class made by SHELL_USER_NAME
+ */
 
-    /// Default constructor
-    DrawCluster();
+class Cluster2d : public std::vector<Hit> {
 
-    /// Default destructor
-    virtual ~DrawCluster();
+public:
+  Cluster2d(){_is_good = false;}
+  ::cluster::cluster_params _params;
+  ::cluster::cluster_params params() {return _params;}
+  bool _is_good;
+  bool is_good() {return _is_good;}
+};
 
-    /** IMPLEMENT in DrawCluster.cc!
-        Initialization method to be called before the analysis event loop.
-    */ 
-    virtual bool initialize();
+class DrawCluster : public larlite::ana_base, public RecoBase<Cluster2d> {
 
-    /** IMPLEMENT in DrawCluster.cc! 
-        Analyze a data event-by-event  
-    */
-    virtual bool analyze(larlite::storage_manager* storage);
+public:
 
-    /** IMPLEMENT in DrawCluster.cc! 
-        Finalize method to be called after all events processed.
-    */
-    virtual bool finalize();
+  /// Default constructor
+  DrawCluster();
 
-    void setProducer(std::string s){producer = s;}
+  /// Default destructor
+  virtual ~DrawCluster();
 
-    int getNClustersByPlane(unsigned int p) const;
+  /** IMPLEMENT in DrawCluster.cc!
+      Initialization method to be called before the analysis event loop.
+  */
+  virtual bool initialize();
 
-    const std::vector<int>   & getWireByPlaneAndCluster(unsigned int p, unsigned int c) const;
-    const std::vector<float> & getHitStartByPlaneAndCluster(unsigned int p, unsigned int c) const;
-    const std::vector<float> & getHitEndByPlaneAndCluster(unsigned int p, unsigned int c) const;
+  /** IMPLEMENT in DrawCluster.cc!
+      Analyze a data event-by-event
+  */
+  virtual bool analyze(larlite::storage_manager* storage);
 
-    std::vector<float> GetWireRange(unsigned int p);
-    std::vector<float> GetTimeRange(unsigned int p);
+  /** IMPLEMENT in DrawCluster.cc!
+      Finalize method to be called after all events processed.
+  */
+  virtual bool finalize();
 
-  protected:
-    
-  private:
+protected:
 
-    const larutil::Geometry * geoService;
+  ::cluster::CRUHelper _cru_helper;
 
-    std::string producer;
-
-    // Internally, keep the hits sorted by cluster
-    // For drawing purposes, need to know all of this hits
-    // by plane but also by cluster.
-    // Return at most 2 index objects (because I don't 
-    // feel like writing the conversion for 3 index)
-    // But store 3 index objects
-    std::vector<std::vector<std::vector<int>   > > * wireByPlaneByCluster;
-    std::vector<std::vector<std::vector<float> > > * hitStartByPlaneByCluster;
-    std::vector<std::vector<std::vector<float> > > * hitEndByPlaneByCluster;
-
-    // Store the bounding parameters of interest:
-    // highest and lowest wire, highest and lowest time
-    // Have to sort by plane still
-
-    std::vector<std::vector<float> > wireRange;
-    std::vector<std::vector<float> > timeRange;
-
-  };
+};
 }
 #endif
 
 //**************************************************************************
-// 
+//
 // For Analysis framework documentation, read Manual.pdf here:
 //
 // http://microboone-docdb.fnal.gov:8080/cgi-bin/ShowDocument?docid=3183
 //
 //**************************************************************************
 
-/** @} */ // end of doxygen group 
+/** @} */ // end of doxygen group

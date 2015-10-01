@@ -110,6 +110,8 @@ else
     export PYTHONPATH=$ROOTSYS/lib:$PYTHONPATH;
 fi
 
+
+
 python $LARLITE_BASEDIR/config/python/gen_usermakefile.py
 python $LARLITE_BASEDIR/config/python/gen_topmakefile.py
 export LD_LIBRARY_PATH=$LARLITE_LIBDIR:$LD_LIBRARY_PATH

@@ -25,8 +25,6 @@ DrawRawDigit::DrawRawDigit() {
 
 }
 
-
-
 bool DrawRawDigit::initialize() {
 
   //
@@ -94,7 +92,7 @@ bool DrawRawDigit::analyze(larlite::storage_manager* storage) {
   subrun = RawDigitHandle->subrun();
   event = RawDigitHandle->event_id();
 
-  float rmsMinBadWire = 2.0 * 2.0;
+  float rmsMinBadWire = 1.5 * 1.5;
   float rmsMaxBadWire = 100 * 100;
 
   badWireMapByPlane.resize(geoService->Nplanes());
@@ -384,7 +382,6 @@ void DrawRawDigit::correctData() {
         //
 
         // Copy the data to the tgraph so that it can be stored, and set up the branches
-
         if (_save_data) {
           char name[100];
           sprintf(name, "subwaveform_%u_%u", plane, step);
@@ -459,7 +456,6 @@ void DrawRawDigit::correctData() {
 
   return;
 
-
 }
 
 float DrawRawDigit::getCorrelation(const std::vector<float> & vec1, const std::vector<float> & vec2)
@@ -508,16 +504,16 @@ float DrawRawDigit::getMedian(std::vector<float> & vals) {
   // return max->first;
   ////Old style:
   // Calculate the median:
-    sort(vals.begin(), vals.end());
-    float median = 0;
-    if (vals.size() % 2 == 0){
-      median =  0.5* vals.at(vals.size()/2)
-              + 0.5* vals.at(vals.size()/2 -1);
-    }
-    else{
-      median = vals.at((int)vals.size()/2);
-    }
-    return median;            
+  sort(vals.begin(), vals.end());
+  float median = 0;
+  if (vals.size() % 2 == 0) {
+    median =  0.5 * vals.at(vals.size() / 2)
+              + 0.5 * vals.at(vals.size() / 2 - 1);
+  }
+  else {
+    median = vals.at((int)vals.size() / 2);
+  }
+  return median;
 }
 }
 #endif
